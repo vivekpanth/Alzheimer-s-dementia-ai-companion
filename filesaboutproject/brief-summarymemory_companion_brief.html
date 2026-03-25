@@ -1,0 +1,172 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.wrap{padding:8px 0 16px;font-size:14px;color:var(--color-text-primary)}
+.hero{background:#534AB7;border-radius:14px;padding:22px 24px 18px;margin-bottom:14px}
+.hero-tag{display:inline-block;background:rgba(255,255,255,0.18);color:#EEEDFE;font-size:11px;padding:3px 10px;border-radius:20px;margin-bottom:10px}
+.hero-title{font-size:22px;font-weight:500;color:#fff;line-height:1.25;margin-bottom:6px}
+.hero-sub{font-size:13px;color:#CECBF6;line-height:1.55}
+.hero-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.hbadge{font-size:11px;padding:3px 10px;border-radius:20px;background:rgba(255,255,255,0.13);color:#fff}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:12px;padding:14px 16px}
+.card-label{font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px}
+.problem-text{font-size:13px;color:var(--color-text-primary);line-height:1.6}
+.stat-row{display:flex;gap:10px;margin-top:10px}
+.stat{background:var(--color-background-secondary);border-radius:8px;padding:8px 10px;flex:1;text-align:center}
+.stat-num{font-size:18px;font-weight:500;color:#534AB7}
+.stat-lbl{font-size:10px;color:var(--color-text-secondary);margin-top:2px}
+
+.agent-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.agent{border-radius:10px;padding:12px;border:0.5px solid var(--color-border-tertiary)}
+.agent-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.agent-name{font-size:12px;font-weight:500;color:var(--color-text-primary);margin-bottom:3px}
+.agent-desc{font-size:11px;color:var(--color-text-secondary);line-height:1.4}
+
+.feat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.feat{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;background:var(--color-background-secondary);border-radius:8px}
+.feat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.feat-text{font-size:12px;color:var(--color-text-primary);line-height:1.45}
+.feat-sub{font-size:11px;color:var(--color-text-secondary);margin-top:1px}
+
+.example-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:12px;overflow:hidden;margin-bottom:12px}
+.ex-header{background:#E1F5EE;padding:10px 16px;display:flex;align-items:center;gap:8px}
+.ex-avatar{width:32px;height:32px;border-radius:50%;background:#1D9E75;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:#fff}
+.ex-name{font-size:13px;font-weight:500;color:#085041}
+.ex-sub{font-size:11px;color:#0F6E56}
+.ex-body{padding:14px 16px}
+.bubble-row{display:flex;gap:8px;margin-bottom:10px;align-items:flex-end}
+.bubble{padding:9px 12px;border-radius:12px;font-size:12px;line-height:1.5;max-width:78%}
+.bubble-user{background:#E6F1FB;color:#0C447C;border-radius:12px 12px 4px 12px;margin-left:auto}
+.bubble-ai{background:var(--color-background-secondary);color:var(--color-text-primary);border-radius:12px 12px 12px 4px}
+.bubble-label{font-size:10px;color:var(--color-text-secondary)}
+.agent-tag{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;margin-top:4px}
+.outcome-row{display:flex;gap:8px;margin-top:4px}
+.outcome{flex:1;background:var(--color-background-secondary);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--color-text-secondary);text-align:center;line-height:1.4}
+.outcome strong{display:block;font-size:13px;color:var(--color-text-primary);margin-bottom:1px}
+
+.stack-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.stag{font-size:11px;padding:4px 10px;border-radius:20px;border:0.5px solid var(--color-border-secondary);color:var(--color-text-secondary)}
+
+.team-row{display:flex;gap:8px;justify-content:center;margin-bottom:4px}
+.tmember{display:flex;flex-direction:column;align-items:center;gap:4px}
+.tavatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:#fff}
+.tname{font-size:11px;color:var(--color-text-secondary)}
+.trole{font-size:10px;color:var(--color-text-tertiary)}
+</style>
+
+<div class="wrap">
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-tag">Masters IT Project — ACU Sydney</div>
+  <div class="hero-title">Memory Companion Agent</div>
+  <div class="hero-sub">An AI-powered web app that helps Alzheimer's patients have warm, personalised conversations — using their own life stories, photos, and memories. Caregivers get daily summaries automatically.</div>
+  <div class="hero-badges">
+    <span class="hbadge">Agentic AI</span>
+    <span class="hbadge">3 Specialised Agents</span>
+    <span class="hbadge">LangGraph</span>
+    <span class="hbadge">RAG + Memory</span>
+    <span class="hbadge">10 Weeks</span>
+    <span class="hbadge">Browser-based</span>
+  </div>
+</div>
+
+<!-- Problem + Stats -->
+<div class="two-col">
+  <div class="card">
+    <div class="card-label">The Problem</div>
+    <p class="problem-text">Over <strong>55 million</strong> people live with dementia worldwide. Caregivers spend hours doing <em>reminiscence therapy</em> — talking through old memories to improve mood. There is no affordable AI system that does this automatically.</p>
+    <div class="stat-row">
+      <div class="stat"><div class="stat-num">55M</div><div class="stat-lbl">people with dementia</div></div>
+      <div class="stat"><div class="stat-num">59%</div><div class="stat-lbl">caregivers burnt out</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-label">Our Solution</div>
+    <p class="problem-text">A caregiver uploads a patient's <strong>photos + biography</strong> once. The AI then holds daily personalised conversations, detects if the patient is upset, redirects gently, and emails a <strong>daily summary</strong> to the family.</p>
+    <div class="stat-row">
+      <div class="stat"><div class="stat-num">3</div><div class="stat-lbl">AI agents working together</div></div>
+      <div class="stat"><div class="stat-num">~$15</div><div class="stat-lbl">total API cost</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 3 Agents -->
+<div class="card" style="margin-bottom:12px">
+  <div class="card-label">How it works — 3 agents behind every conversation</div>
+  <div class="agent-row" style="margin-top:10px">
+    <div class="agent" style="background:#E6F1FB">
+      <div class="agent-icon" style="background:#185FA5"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" fill="#fff"/><path d="M2 14c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+      <div class="agent-name" style="color:#0C447C">Reminiscence Agent</div>
+      <div class="agent-desc" style="color:#185FA5">Retrieves personal facts from the patient's uploaded biography and past sessions. Generates warm, grounded responses using only <em>real memories</em>.</div>
+    </div>
+    <div class="agent" style="background:#E1F5EE">
+      <div class="agent-icon" style="background:#1D9E75"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2C5 2 3 4 3 7c0 2 1 3.5 2.5 4.5L5 14h6l-.5-2.5C12 10.5 13 9 13 7c0-3-2-5-5-5z" fill="#fff"/></svg></div>
+      <div class="agent-name" style="color:#085041">Mood Agent</div>
+      <div class="agent-desc" style="color:#0F6E56">Reads every message for emotional tone — happy, confused, or distressed. If distress is detected, it signals the supervisor to redirect the conversation gently.</div>
+    </div>
+    <div class="agent" style="background:#FAEEDA">
+      <div class="agent-icon" style="background:#BA7517"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="2" rx="1" fill="#fff"/><rect x="2" y="7" width="9" height="2" rx="1" fill="#fff"/><rect x="2" y="11" width="6" height="2" rx="1" fill="#fff"/></svg></div>
+      <div class="agent-name" style="color:#633806">Report Agent</div>
+      <div class="agent-desc" style="color:#854F0B">At session end, auto-generates a plain-English daily summary for the caregiver — topics discussed, mood trend, and any concerns to follow up on.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Features -->
+<div class="card" style="margin-bottom:12px">
+  <div class="card-label">Key features</div>
+  <div class="feat-grid" style="margin-top:10px">
+    <div class="feat"><div class="feat-dot" style="background:#534AB7"></div><div><div class="feat-text">Personalised conversations</div><div class="feat-sub">Based on patient's own photos and life story</div></div></div>
+    <div class="feat"><div class="feat-dot" style="background:#1D9E75"></div><div><div class="feat-text">Real-time mood detection</div><div class="feat-sub">Detects distress and redirects automatically</div></div></div>
+    <div class="feat"><div class="feat-dot" style="background:#378ADD"></div><div><div class="feat-text">Cross-session memory</div><div class="feat-sub">Remembers what was said in previous sessions</div></div></div>
+    <div class="feat"><div class="feat-dot" style="background:#BA7517"></div><div><div class="feat-text">Caregiver daily report</div><div class="feat-sub">Auto-generated summary emailed to family</div></div></div>
+    <div class="feat"><div class="feat-dot" style="background:#D85A30"></div><div><div class="feat-text">Voice output (TTS)</div><div class="feat-sub">Reads responses aloud via browser — no typing</div></div></div>
+    <div class="feat"><div class="feat-dot" style="background:#888780"></div><div><div class="feat-text">Simple caregiver setup</div><div class="feat-sub">Upload photos + bio once, done</div></div></div>
+  </div>
+</div>
+
+<!-- Real Example -->
+<div class="example-card">
+  <div class="ex-header">
+    <div class="ex-avatar">M</div>
+    <div><div class="ex-name">Margaret, 78 — Alzheimer's patient</div><div class="ex-sub">Morning session · Bondi Beach memory</div></div>
+  </div>
+  <div class="ex-body">
+    <div class="bubble-row"><div class="bubble bubble-ai"><strong>AI:</strong> Good morning Margaret! I was looking at that beautiful photo of you at Bondi Beach in 1964. You looked so happy — was that a family holiday?<div><span class="agent-tag" style="background:#E6F1FB;color:#185FA5">Reminiscence Agent used biography RAG</span></div></div></div>
+    <div class="bubble-row"><div class="bubble bubble-user">Yes! We used to pack sandwiches and spend the whole day there with the kids...</div></div>
+    <div class="bubble-row"><div class="bubble bubble-ai"><strong>AI:</strong> That sounds wonderful. Your daughter Sarah mentioned you made the best Vegemite sandwiches. Did David help pack the bag?<div><span class="agent-tag" style="background:#E1F5EE;color:#085041">Mood: happy — Reminiscence Agent continues</span></div></div></div>
+    <div class="bubble-row"><div class="bubble bubble-user">Where is David? I want David.</div></div>
+    <div class="bubble-row"><div class="bubble bubble-ai"><strong>AI:</strong> David sounds like he was such a wonderful part of your life. You know what — I have some of that folk music you both loved. Shall we listen together?<div><span class="agent-tag" style="background:#FAEEDA;color:#854F0B">Mood: distressed — Supervisor redirected to calm mode</span></div></div></div>
+    <div class="outcome-row">
+      <div class="outcome"><strong>Session: 28 min</strong>Engaged & happy</div>
+      <div class="outcome"><strong>1 distress event</strong>Redirected in 3 sec</div>
+      <div class="outcome"><strong>Report sent</strong>To daughter Sarah</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tech Stack -->
+<div class="card" style="margin-bottom:12px">
+  <div class="card-label">Tech stack</div>
+  <div class="stack-row" style="margin-top:8px">
+    <span class="stag">LangGraph</span><span class="stag">Claude API</span><span class="stag">LlamaIndex</span>
+    <span class="stag">ChromaDB</span><span class="stag">Mem0</span><span class="stag">FastAPI</span>
+    <span class="stag">React</span><span class="stag">Web Speech API</span><span class="stag">Vercel</span>
+  </div>
+</div>
+
+<!-- Team -->
+<div class="card">
+  <div class="card-label" style="text-align:center;margin-bottom:12px">Team — Bharat · Vivek · Anish · Rohit</div>
+  <div class="team-row">
+    <div class="tmember"><div class="tavatar" style="background:#534AB7">B</div><div class="tname">Bharat</div><div class="trole">AI & Backend</div></div>
+    <div class="tmember"><div class="tavatar" style="background:#1D9E75">V</div><div class="tname">Vivek</div><div class="trole">Data Pipeline</div></div>
+    <div class="tmember"><div class="tavatar" style="background:#D85A30">A</div><div class="tname">Anish</div><div class="trole">Frontend</div></div>
+    <div class="tmember"><div class="tavatar" style="background:#BA7517">R</div><div class="tname">Rohit</div><div class="trole">UI & Testing</div></div>
+  </div>
+</div>
+
+</div>
