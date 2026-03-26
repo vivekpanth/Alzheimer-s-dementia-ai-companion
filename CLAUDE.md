@@ -697,21 +697,21 @@ Claude Code must follow this order. Never build Phase N+1 until Phase N is teste
 
 ```
 Phase 1 — Foundation (Week 1-2)
-  [ ] GitHub repo created, all 4 members added
-  [ ] Supabase project created, pgvector extension enabled
-  [ ] SQL schema above applied in Supabase SQL editor
-  [ ] FastAPI backend running, /health returns {"status": "ok"}
-  [ ] OpenAI API key confirmed working (test call returns response)
-  [ ] React app running on localhost:5173 with 3 routes
-  [ ] .env.example committed, .env in .gitignore
+  [x] GitHub repo created, all 4 members added
+  [x] Supabase project created, pgvector extension enabled
+  [x] SQL schema above applied in Supabase SQL editor
+  [x] FastAPI backend running, /health returns {"status": "ok"}
+  [x] OpenAI API key confirmed working (test call returns response)
+  [x] React app running on localhost:5173 with 3 routes
+  [x] .env.example committed, .env in .gitignore
 
 Phase 2 — AI Agents (Week 3-5)
-  [ ] Mood Agent built and tested — returns correct JSON sentiment
-  [ ] Reminiscence Agent built — RAG search returns relevant biography chunks
-  [ ] Mem0 integrated — saves and retrieves cross-session facts
-  [ ] LangGraph supervisor built — correctly routes based on sentiment
-  [ ] Report Agent built — generates readable session summary
-  [ ] All agents connected — full message flow works end-to-end
+  [x] Mood Agent built and tested — returns correct JSON sentiment
+  [x] Reminiscence Agent built — RAG search returns relevant biography chunks
+  [x] Mem0 integrated — saves and retrieves cross-session facts
+  [x] LangGraph supervisor built — correctly routes based on sentiment
+  [x] Report Agent built — generates readable session summary
+  [x] All agents connected — full message flow works end-to-end
 
 Phase 3 — Frontend (Week 6-7)
   [ ] Onboarding form — uploads bio + photos, POSTs to /ingest
