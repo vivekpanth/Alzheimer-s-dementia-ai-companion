@@ -24,7 +24,13 @@ export default function Onboarding() {
     formData.append('biography', biography.trim())
     formData.append('family_members', familyMembers.trim())
     formData.append('favourite_topics', favouriteTopics.trim())
-    photos.forEach((file) => formData.append('photos', file))
+    // Photos now have {file, description} — send files and descriptions separately
+    const photoDescriptions = []
+    photos.forEach((photo) => {
+      formData.append('photos', photo.file)
+      photoDescriptions.push(photo.description || '')
+    })
+    formData.append('photo_descriptions', JSON.stringify(photoDescriptions))
 
     try {
       const res = await ingestPatientData(formData)

@@ -1,5 +1,5 @@
 // Chat page — voice-first conversational AI companion interface
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import MessageBubble from '../components/MessageBubble.jsx'
 import { useChat } from '../hooks/useChat.js'
 import { useSpeech } from '../hooks/useSpeech.js'
@@ -14,49 +14,49 @@ const GREETINGS = [
 
 export default function Chat() {
   const { messages, loading, send } = useChat(PATIENT_ID)
-  const { listening, speaking, transcript, startListening, speak, clearTranscript, voicesReady } = useSpeech()
+  const { listening, speaking, transcript, startListening, stopListening, speak, clearTranscript } = useSpeech()
   const [started, setStarted] = useState(false)
-  const [mode, setMode] = useState('voice') // 'voice' or 'text'
+  const [mode, setMode] = useState('voice')
   const [textInput, setTextInput] = useState('')
   const bottomRef = useRef(null)
   const prevMsgCount = useRef(0)
 
-  // Auto-scroll to latest message
+  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, listening, speaking])
 
-  // When a NEW assistant message arrives, speak it aloud — then auto-listen when done
+  // When a NEW assistant message arrives (not the greeting), speak it
   useEffect(() => {
     if (messages.length > prevMsgCount.current) {
       const last = messages[messages.length - 1]
-      if (last?.role === 'assistant' && mode === 'voice') {
-        speak(last.content, () => {
-          // AI finished speaking → automatically start listening for patient
-          startListening()
-        })
-      } else if (last?.role === 'assistant' && mode === 'text') {
-        // In text mode, just speak but don't auto-listen
-        speak(last.content)
+      // Only auto-speak messages that came from the API (not the initial greeting we already spoke)
+      if (last?.role === 'assistant' && prevMsgCount.current > 0) {
+        if (mode === 'voice') {
+          speak(last.content, () => startListening())
+        } else {
+          speak(last.content)
+        }
       }
     }
     prevMsgCount.current = messages.length
   }, [messages, speak, startListening, mode])
 
-  // Auto-send when speech recognition ends with a transcript
+  // Auto-send when patient finishes speaking
   useEffect(() => {
     if (!listening && transcript) {
+      stopListening()
       send(transcript)
       clearTranscript()
     }
-  }, [listening, transcript, send, clearTranscript])
+  }, [listening, transcript, send, clearTranscript, stopListening])
 
+  // Start button click — speak DIRECTLY in the click handler (Chrome requires user gesture)
   const handleStart = () => {
     setStarted(true)
     const greeting = GREETINGS[Math.floor(Math.random() * GREETINGS.length)]
-    // Add greeting as first message
     send.__addAssistantMessage(greeting)
-    // Speak it, then auto-listen when done
+    // This speak() call is synchronous from the click — Chrome will allow it
     speak(greeting, () => {
       if (mode === 'voice') startListening()
     })
@@ -69,24 +69,21 @@ export default function Chat() {
     }
   }
 
-  // Current conversation status for the patient
   const getStatus = () => {
     if (speaking) return 'Companion is speaking...'
     if (listening) return 'Listening to you...'
     if (loading) return 'Thinking...'
-    return mode === 'voice' ? 'Press the button to speak' : ''
+    return mode === 'voice' ? 'Tap the microphone to speak' : ''
   }
 
-  // Start conversation screen — one big button, nothing else
+  // Start screen
   if (!started) {
     return (
-      <div
-        style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', height: '100vh', backgroundColor: '#f8fafc',
-          fontFamily: 'system-ui, Arial, sans-serif', padding: '32px',
-        }}
-      >
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', height: '100vh', backgroundColor: '#f8fafc',
+        fontFamily: 'system-ui, Arial, sans-serif', padding: '32px',
+      }}>
         <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#1e293b', marginBottom: '16px', textAlign: 'center' }}>
           Your Companion
         </p>
@@ -110,12 +107,10 @@ export default function Chat() {
   }
 
   return (
-    <div
-      style={{
-        display: 'flex', flexDirection: 'column', height: '100vh',
-        backgroundColor: '#ffffff', fontFamily: 'system-ui, Arial, sans-serif',
-      }}
-    >
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100vh',
+      backgroundColor: '#ffffff', fontFamily: 'system-ui, Arial, sans-serif',
+    }}>
       {/* Header */}
       <div style={{
         backgroundColor: '#4f46e5', color: 'white', padding: '16px 24px',
@@ -144,24 +139,20 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* Status indicator */}
+      {/* Status */}
       {getStatus() && (
         <div style={{
-          textAlign: 'center', padding: '12px',
-          fontSize: '22px', color: speaking ? '#4f46e5' : listening ? '#059669' : '#6b7280',
+          textAlign: 'center', padding: '12px', fontSize: '22px',
+          color: speaking ? '#4f46e5' : listening ? '#059669' : '#6b7280',
           fontWeight: '500',
         }}>
           {getStatus()}
         </div>
       )}
 
-      {/* Input area */}
-      <div style={{
-        borderTop: '1px solid #e5e7eb', padding: '20px',
-        backgroundColor: '#f9fafb',
-      }}>
+      {/* Input */}
+      <div style={{ borderTop: '1px solid #e5e7eb', padding: '20px', backgroundColor: '#f9fafb' }}>
         {mode === 'voice' ? (
-          /* Voice mode — one big microphone button, patient can also manually press */
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <button
               onClick={startListening}
@@ -179,7 +170,6 @@ export default function Chat() {
             </button>
           </div>
         ) : (
-          /* Text mode — input field + send button */
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
             <input
               type="text"
@@ -189,8 +179,7 @@ export default function Chat() {
               placeholder="Type your message..."
               style={{
                 flex: 1, border: '1px solid #d1d5db', borderRadius: '12px',
-                padding: '14px 18px', fontSize: '24px',
-                fontFamily: 'system-ui, Arial, sans-serif',
+                padding: '14px 18px', fontSize: '24px', fontFamily: 'system-ui, Arial, sans-serif',
               }}
             />
             <button

@@ -24,8 +24,8 @@ A web app where a caregiver uploads a patient's photos and life story once, and 
 
 ```
 FRONTEND (React + Tailwind)
-  /onboarding   → Caregiver uploads bio, photos, family details
-  /chat         → Patient voice/text chat interface (large text, TTS)
+  /onboarding   → Caregiver uploads bio, photos (with per-photo descriptions), family details
+  /chat         → Voice-first AI companion (AI speaks first, auto-listens, auto-responds) + text fallback
   /dashboard    → Caregiver daily summary, mood chart, concern alerts
 
 BACKEND (FastAPI — Python)
@@ -365,6 +365,17 @@ PORT=8000
 - Always check `'webkitSpeechRecognition' in window` before initialising
 - TTS reads every agent response automatically on the /chat page
 - Microphone button is large (min 80x80px) and clearly labelled
+- **Voice-first design**: AI speaks first, then auto-listens for patient response — patient never needs to tap "send"
+- Mic and speaker CANNOT run simultaneously — always stop mic before speaking and vice versa
+- Chrome TTS requires `synth.speak()` to be called from a user gesture chain (click handler)
+- Long TTS utterances need a pause/resume interval (~5s) to prevent Chrome from cutting off speech
+- OpenAI client must be initialised lazily inside functions (not module-level) because dotenv loads after imports
+
+### Photo Onboarding
+- Each uploaded photo has a per-photo caregiver description field ("Who is in this photo? Where and when was it taken?")
+- During ingestion, the caregiver description is sent to GPT-4o Vision as context alongside the image
+- The combined chunk (`"Photo memory: {caregiver_desc}. {vision_caption}"`) is embedded and stored in Supabase for RAG
+- This ensures the AI companion knows who is in each photo, where it was taken, and the associated memory
 
 ---
 
@@ -714,10 +725,10 @@ Phase 2 — AI Agents (Week 3-5)
   [x] All agents connected — full message flow works end-to-end
 
 Phase 3 — Frontend (Week 6-7)
-  [ ] Onboarding form — uploads bio + photos, POSTs to /ingest
-  [ ] Patient chat UI — large text, voice input, TTS output working
-  [ ] Caregiver dashboard — shows summary, mood chart, concern alerts
-  [ ] All pages connected to backend via src/api/client.js
+  [x] Onboarding form — uploads bio + photos, POSTs to /ingest
+  [x] Patient chat UI — large text, voice input, TTS output working
+  [x] Caregiver dashboard — shows summary, mood chart, concern alerts
+  [x] All pages connected to backend via src/api/client.js
   [ ] Accessibility review run on patient chat screen
 
 Phase 4 — Testing (Week 8-9)

@@ -5,29 +5,29 @@ export function useSpeech() {
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [transcript, setTranscript] = useState('')
-  const [voicesReady, setVoicesReady] = useState(false)
   const recognitionRef = useRef(null)
+  const utteranceRef = useRef(null)
 
-  // Ensure voices are loaded — Chrome loads them async
+  // Force-load voices on mount
   useEffect(() => {
-    if (!('speechSynthesis' in window)) return
-    const synth = window.speechSynthesis
-
-    const loadVoices = () => {
-      const voices = synth.getVoices()
-      if (voices.length > 0) {
-        setVoicesReady(true)
-      }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices()
     }
+  }, [])
 
-    loadVoices()
-    synth.onvoiceschanged = loadVoices
-    return () => { synth.onvoiceschanged = null }
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort() } catch (e) {}
+      recognitionRef.current = null
+    }
+    setListening(false)
   }, [])
 
   const startListening = useCallback(() => {
-    /**Start speech recognition — supported in Chrome and Edge only.*/
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return
+
+    // Don't start listening if currently speaking
+    if (window.speechSynthesis && window.speechSynthesis.speaking) return
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     const recognition = new SpeechRecognition()
@@ -36,77 +36,104 @@ export function useSpeech() {
     recognition.maxAlternatives = 1
 
     recognition.onresult = (e) => {
-      const text = e.results[0][0].transcript
-      setTranscript(text)
+      setTranscript(e.results[0][0].transcript)
     }
-    recognition.onend = () => setListening(false)
-    recognition.onerror = () => setListening(false)
+    recognition.onend = () => {
+      setListening(false)
+      recognitionRef.current = null
+    }
+    recognition.onerror = () => {
+      setListening(false)
+      recognitionRef.current = null
+    }
 
     recognitionRef.current = recognition
+    setTranscript('')
     recognition.start()
     setListening(true)
-    setTranscript('')
   }, [])
 
   const speak = useCallback((text, onEnd) => {
-    /**Read text aloud using browser TTS. Calls onEnd when finished speaking.*/
-    if (!('speechSynthesis' in window)) {
+    const synth = window.speechSynthesis
+    if (!synth) {
+      console.warn('speechSynthesis not available')
       if (onEnd) onEnd()
       return
     }
 
-    const synth = window.speechSynthesis
+    // Step 1: Kill the microphone completely
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort() } catch (e) {}
+      recognitionRef.current = null
+      setListening(false)
+    }
 
-    // Cancel anything currently playing
+    // Step 2: Cancel any queued speech
     synth.cancel()
 
-    // Small delay after cancel — Chrome needs this to not swallow the next utterance
-    setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = 0.85
-      utterance.pitch = 1.0
-      utterance.volume = 1.0
+    // Step 3: Create utterance
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.rate = 0.9
+    utterance.pitch = 1.0
+    utterance.volume = 1.0
 
-      // Pick an English voice if available
-      const voices = synth.getVoices()
-      const englishVoice = voices.find(v => v.lang.startsWith('en') && v.default)
+    // Pick a good voice
+    const voices = synth.getVoices()
+    if (voices.length > 0) {
+      const preferred = voices.find(v => v.name.includes('Samantha'))
+        || voices.find(v => v.lang.startsWith('en') && v.localService)
         || voices.find(v => v.lang.startsWith('en'))
-      if (englishVoice) utterance.voice = englishVoice
+      if (preferred) utterance.voice = preferred
+    }
 
-      utterance.onstart = () => {
-        setSpeaking(true)
-      }
-      utterance.onend = () => {
-        setSpeaking(false)
-        if (onEnd) onEnd()
-      }
-      utterance.onerror = (e) => {
-        console.warn('TTS error:', e.error)
-        setSpeaking(false)
-        if (onEnd) onEnd()
-      }
+    utterance.onstart = () => {
+      console.log('[TTS] Started speaking:', text.substring(0, 40) + '...')
+      setSpeaking(true)
+    }
 
-      synth.speak(utterance)
+    utterance.onend = () => {
+      console.log('[TTS] Finished speaking')
+      setSpeaking(false)
+      if (onEnd) setTimeout(onEnd, 300) // small gap before listening starts
+    }
 
-      // Chrome bug workaround: long utterances get paused after ~15s
-      // Resume periodically to prevent this
-      const resumeInterval = setInterval(() => {
-        if (!synth.speaking) {
-          clearInterval(resumeInterval)
-        } else {
-          synth.resume()
-        }
-      }, 10000)
+    utterance.onerror = (e) => {
+      console.error('[TTS] Error:', e.error)
+      setSpeaking(false)
+      if (onEnd) onEnd()
+    }
 
-      utterance.onend = () => {
-        clearInterval(resumeInterval)
-        setSpeaking(false)
-        if (onEnd) onEnd()
+    utteranceRef.current = utterance
+
+    // Step 4: Speak — MUST be called synchronously from user gesture for first call
+    console.log('[TTS] Calling synth.speak(), voices loaded:', voices.length)
+    synth.speak(utterance)
+
+    // Chrome bug: long speech gets stuck. Resume it periodically.
+    const keepAlive = setInterval(() => {
+      if (synth.speaking) {
+        synth.pause()
+        synth.resume()
+      } else {
+        clearInterval(keepAlive)
       }
-    }, 100)
+    }, 5000)
+
+    // Clean up interval when done
+    const origOnEnd = utterance.onend
+    utterance.onend = () => {
+      clearInterval(keepAlive)
+      origOnEnd()
+    }
+    utterance.onerror = (e) => {
+      clearInterval(keepAlive)
+      console.error('[TTS] Error:', e.error)
+      setSpeaking(false)
+      if (onEnd) onEnd()
+    }
   }, [])
 
   const clearTranscript = useCallback(() => setTranscript(''), [])
 
-  return { listening, speaking, transcript, startListening, speak, clearTranscript, voicesReady }
+  return { listening, speaking, transcript, startListening, stopListening, speak, clearTranscript }
 }
