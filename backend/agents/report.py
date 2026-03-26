@@ -3,7 +3,10 @@ import os
 from openai import AsyncOpenAI
 from agents.supervisor import AgentState
 
-_openai = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+def _get_openai() -> AsyncOpenAI:
+    """Return OpenAI client, reading key at call time so dotenv is already loaded."""
+    return AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 _SYSTEM_PROMPT = """You are writing a plain-English summary for a caregiver about their patient's conversation session.
 The caregiver may not be tech-savvy. Write warmly and clearly.
@@ -37,7 +40,7 @@ Mood trend: {mood_trend}
 
 Write a caregiver report summarising this session."""
 
-    response = await _openai.chat.completions.create(
+    response = await _get_openai().chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},

@@ -5,7 +5,10 @@ from agents.supervisor import AgentState
 from tools.search_biography import search_biography
 from tools.recall_session import recall_session, save_to_memory
 
-_openai = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+def _get_openai() -> AsyncOpenAI:
+    """Return OpenAI client, reading key at call time so dotenv is already loaded."""
+    return AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 _SYSTEM_PROMPT = """You are a warm, caring AI companion talking with an elderly person with memory difficulties.
 You only speak about things you know are true from their personal story.
@@ -35,7 +38,7 @@ Past session memories:
 
 Patient's message: {message}"""
 
-    response = await _openai.chat.completions.create(
+    response = await _get_openai().chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
@@ -76,7 +79,7 @@ Keep to 2-3 sentences and end with a gentle, positive question.
 Biography context: {biography_context}
 Patient's message: {state['user_message']}"""
 
-    response = await _openai.chat.completions.create(
+    response = await _get_openai().chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},

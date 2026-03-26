@@ -4,7 +4,10 @@ import os
 from openai import AsyncOpenAI
 from agents.supervisor import AgentState
 
-_openai = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+def _get_openai() -> AsyncOpenAI:
+    """Return OpenAI client, reading key at call time so dotenv is already loaded."""
+    return AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 _SYSTEM_PROMPT = """You are a sentiment classifier for messages from elderly patients with memory difficulties.
 Classify the message as exactly one of: happy, confused, distressed, neutral.
@@ -18,7 +21,7 @@ Respond with ONLY valid JSON in this exact format:
 async def classify_mood(state: AgentState) -> AgentState:
     """Classify patient message as happy/confused/distressed/neutral. Returns updated state with sentiment and confidence."""
     try:
-        response = await _openai.chat.completions.create(
+        response = await _get_openai().chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
