@@ -66,6 +66,141 @@ DATA LAYER
 
 ---
 
+## Quick Start — Local Dev Setup
+
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- Git
+- A Supabase account (free tier) with pgvector enabled
+- An OpenAI API key
+- A Mem0 API key (free tier at mem0.ai)
+
+### Backend Setup
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate          # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp ../.env.example .env           # then fill in your keys
+uvicorn main:app --reload --port 8000
+# Test: curl http://localhost:8000/health → {"status": "ok"}
+```
+
+### Frontend Setup
+```bash
+cd frontend
+npm install
+cp .env.example .env.local        # set VITE_API_URL=http://localhost:8000
+npm run dev
+# Open: http://localhost:5173
+```
+
+### Supabase Setup
+1. Create project at supabase.com
+2. Go to Extensions → enable `pgvector`
+3. Run the SQL schema below in the Supabase SQL editor
+4. Copy your project URL and keys into `backend/.env`
+
+---
+
+## Supabase Database Schema
+
+Run this SQL in the Supabase SQL editor to set up all required tables:
+
+```sql
+-- Enable pgvector extension (do this first in Extensions tab if not done)
+create extension if not exists vector;
+
+-- Biography chunks table (RAG store)
+create table biography_chunks (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  content text not null,
+  embedding vector(1536),         -- OpenAI text-embedding-3-small dimensions
+  metadata jsonb default '{}',    -- source: "text_bio" | "photo_caption", photo_url, etc.
+  created_at timestamptz default now()
+);
+
+-- Index for fast similarity search
+create index on biography_chunks
+  using ivfflat (embedding vector_cosine_ops)
+  with (lists = 100);
+
+-- Sessions table
+create table sessions (
+  id uuid primary key default gen_random_uuid(),
+  session_id text not null unique,
+  user_id text not null,
+  started_at timestamptz default now(),
+  ended_at timestamptz,
+  duration_minutes int,
+  mood_trend text[],              -- e.g. ["happy","happy","distressed","happy"]
+  session_log jsonb default '[]', -- array of {role, content, timestamp, sentiment}
+  is_complete boolean default false
+);
+
+-- Caregiver reports table
+create table caregiver_reports (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  session_id text not null references sessions(session_id),
+  report_date date default current_date,
+  summary text,
+  concerns jsonb default '[]',    -- [{text, timestamp, occurrences_this_week}]
+  created_at timestamptz default now()
+);
+
+-- Patient profiles table
+create table patient_profiles (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null unique,
+  full_name text,
+  date_of_birth date,
+  biography_text text,
+  family_members jsonb default '[]',
+  favourite_topics text[],
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Row Level Security (enable for all tables in production)
+alter table biography_chunks enable row level security;
+alter table sessions enable row level security;
+alter table caregiver_reports enable row level security;
+alter table patient_profiles enable row level security;
+```
+
+### Supabase Helper: Similarity Search Function
+```sql
+-- Add this function for biography RAG search
+create or replace function search_biography(
+  query_embedding vector(1536),
+  match_user_id text,
+  match_threshold float default 0.7,
+  match_count int default 5
+)
+returns table (
+  id uuid,
+  content text,
+  metadata jsonb,
+  similarity float
+)
+language sql stable
+as $$
+  select
+    id, content, metadata,
+    1 - (embedding <=> query_embedding) as similarity
+  from biography_chunks
+  where user_id = match_user_id
+    and 1 - (embedding <=> query_embedding) > match_threshold
+  order by embedding <=> query_embedding
+  limit match_count;
+$$;
+```
+
+---
+
 ## Project Folder Structure
 
 ```
@@ -136,6 +271,45 @@ memory-companion-agent/
 
 ---
 
+## .gitignore Requirements
+
+The `.gitignore` must always include:
+```
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.next/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Never commit patient data
+*.jpg
+*.jpeg
+*.png
+uploads/
+patient_data/
+```
+
+---
+
 ## Environment Variables
 
 ```bash
@@ -154,6 +328,7 @@ MEM0_API_KEY=...
 
 # App
 CORS_ORIGINS=http://localhost:5173,https://your-vercel-app.vercel.app
+PORT=8000
 ```
 
 ---
@@ -174,6 +349,7 @@ CORS_ORIGINS=http://localhost:5173,https://your-vercel-app.vercel.app
 - Agent nodes live in `agents/` — tools live in `tools/` — keep them separate
 - Return consistent JSON error responses: `{"error": "message", "detail": "..."}`
 - Never catch a bare `except:` — always catch specific exceptions
+- Use `openai` Python SDK v1.x+ (new client style: `client = OpenAI()`)
 
 ### React / Frontend
 - React 18 functional components only — no class components
@@ -192,9 +368,65 @@ CORS_ORIGINS=http://localhost:5173,https://your-vercel-app.vercel.app
 
 ---
 
-## Agent Behaviour Rules
+## Accessibility Rules — Critical for This Project
 
-These rules define how the AI agents must behave. Reference these when writing system prompts.
+The patient UI is used by elderly people with cognitive decline. These rules are non-negotiable:
+
+| Rule | Requirement |
+|------|-------------|
+| Font size | Minimum 24px on /chat, minimum 18px elsewhere |
+| Contrast ratio | WCAG AAA (7:1) on patient-facing screens |
+| Touch targets | All buttons minimum 80×80px |
+| Animations | Zero animations on /chat — they cause distress |
+| Colour | No red on patient screens (associated with alarm/danger) |
+| Layout | Max 2 interactive elements visible at once on /chat |
+| Error messages | Never show technical errors to patients — show "Let me try again" |
+| TTS | Every agent response auto-reads aloud — no user action required |
+| Font | Use system-ui or Arial — no decorative fonts |
+| Spacing | Generous padding (min 16px) between all interactive elements |
+
+Use the `design:accessibility-review` skill (`.claude/skills/design/accessibility-review/`) when any patient-facing UI is ready for review.
+
+---
+
+## Mem0 Usage Patterns
+
+### When to SAVE to Mem0
+Save after every completed conversation turn. Key facts to extract:
+- Names mentioned (family, friends, places)
+- Topics the patient engaged with positively
+- Distress triggers (topics that caused upset)
+- Preferences expressed ("I love...", "I don't like...")
+
+```python
+# Pattern for saving to Mem0
+mem0_client.add(
+    messages=[{"role": "user", "content": user_message}],
+    user_id=user_id,
+    metadata={"session_id": session_id, "sentiment": sentiment}
+)
+```
+
+### When to RETRIEVE from Mem0
+Retrieve before every Reminiscence Agent response:
+```python
+# Pattern for retrieving from Mem0
+memories = mem0_client.search(
+    query=user_message,
+    user_id=user_id,
+    limit=3
+)
+context = "\n".join([m["memory"] for m in memories])
+```
+
+### What NOT to store in Mem0
+- Raw session logs (store in Supabase `sessions` table instead)
+- Photo data or embeddings (store in Supabase `biography_chunks`)
+- API keys or any secrets
+
+---
+
+## Agent Behaviour Rules
 
 ### Reminiscence Agent
 - ONLY use facts from the patient's uploaded biography and past session memories
@@ -241,6 +473,33 @@ class AgentState(TypedDict):
     response: Optional[str]            # final output to user
     session_log: List[dict]            # appended every turn: {role, content, timestamp}
     session_end: bool                  # triggers Report Agent when True
+```
+
+### LangGraph Graph Setup Pattern
+```python
+from langgraph.graph import StateGraph, END
+
+def build_graph():
+    graph = StateGraph(AgentState)
+    graph.add_node("mood_agent", run_mood_agent)
+    graph.add_node("reminiscence_agent", run_reminiscence_agent)
+    graph.add_node("calm_redirect", run_calm_redirect)
+    graph.add_node("report_agent", run_report_agent)
+
+    graph.set_entry_point("mood_agent")
+    graph.add_conditional_edges(
+        "mood_agent",
+        route_after_mood,           # returns "reminiscence_agent" or "calm_redirect"
+        {"reminiscence_agent": "reminiscence_agent", "calm_redirect": "calm_redirect"}
+    )
+    graph.add_conditional_edges(
+        "reminiscence_agent",
+        check_session_end,          # returns END or "report_agent"
+        {END: END, "report_agent": "report_agent"}
+    )
+    graph.add_edge("calm_redirect", END)
+    graph.add_edge("report_agent", END)
+    return graph.compile()
 ```
 
 ---
@@ -300,6 +559,108 @@ Response:
 }
 ```
 
+### GET /health
+```json
+Response: {"status": "ok", "version": "1.0.0"}
+```
+
+---
+
+## Testing Commands
+
+```bash
+# Run from backend/ with venv activated
+
+# Health check
+curl http://localhost:8000/health
+
+# Test chat endpoint
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"test_001","message":"I love roses","session_id":"sess_test"}'
+
+# Test Mood Agent in isolation
+python3 -c "
+from agents.mood import run_mood_agent
+from agents.supervisor import AgentState
+state = AgentState(user_id='test', user_message='Where is David?', sentiment=None, sentiment_confidence=None, retrieved_biography=None, retrieved_memory=None, response=None, session_log=[], session_end=False)
+result = run_mood_agent(state)
+print(result['sentiment'])  # should be: distressed
+"
+
+# Test RAG search (after ingestion)
+python3 -c "
+from tools.search_biography import search_biography
+results = search_biography(query='beach memories', user_id='margaret_001')
+print(results)
+"
+
+# Run all unit tests (once test files are written)
+pytest backend/tests/ -v
+```
+
+---
+
+## Evaluation Criteria
+
+### Success Metrics (for research paper)
+
+| Metric | How to Measure | Target |
+|--------|---------------|--------|
+| Response relevance | Manual score 1–5 on 20 test conversations | Average ≥ 4.0 |
+| Distress detection accuracy | Test 10 distress messages, 10 neutral | ≥ 90% correct classification |
+| Calm redirect quality | Manual score 1–5 on 10 redirect responses | Average ≥ 4.0 |
+| Cross-session recall | Run 3 sessions, check if session 3 recalls session 1 facts | 100% recall |
+| Caregiver report accuracy | Compare report to session log manually | ≥ 95% factual accuracy |
+| System latency | Time from message to response | < 3 seconds per turn |
+
+### Evaluation Test Scenarios (run all 5 before submission)
+1. **Happy reminiscence** — Patient mentions a positive memory, agent responds with relevant bio detail
+2. **Distress trigger** — Patient asks for deceased person, agent redirects calmly without mentioning death
+3. **Cross-session recall** — End session, start new session, confirm agent remembers previous topics
+4. **Confusion handling** — Patient asks where they are, agent gently redirects without confirming confusion
+5. **Caregiver report** — Run 20-minute session, verify report accurately reflects topics and flags concerns
+
+---
+
+## Skills Available (use these when creating files)
+
+These skill files contain best practices for document creation. Claude Code should read and follow them:
+
+| Task | Skill File to Read |
+|------|--------------------|
+| Create Word doc (report, paper section) | `.claude/skills/docx/SKILL.md` |
+| Create PowerPoint slides | `.claude/skills/pptx/SKILL.md` |
+| Create or read PDF | `.claude/skills/pdf/SKILL.md` |
+| Build React UI / frontend components | `.claude/skills/frontend-design/SKILL.md` |
+| Make text less AI-sounding | `.claude/skills/humanizer/SKILL.md` |
+| Create Excel spreadsheet | `.claude/skills/xlsx/SKILL.md` |
+
+**Rule:** Before creating any `.docx`, `.pptx`, `.pdf`, or `.jsx` file, read the relevant skill file first.
+
+---
+
+## Cowork + Desktop Commander Workflow
+
+When working in Claude Cowork (desktop app), Desktop Commander is connected and can:
+- Read/write files directly in this project folder (`/Users/vivekpanth/adp/`)
+- Run terminal commands (install packages, start servers, run tests)
+- Update this `CLAUDE.md` file when plans change
+
+**Division of work:**
+| Task | Use |
+|------|-----|
+| Planning, architecture, reading PDFs | Claude Cowork |
+| Creating documents, slides, reports | Claude Cowork (uses skills) |
+| Running code, fixing bugs, building features | Claude Code (CLI or VS Code) |
+| Deploying to Vercel | Claude Cowork (Vercel MCP connected) |
+| Running Supabase migrations | Claude Cowork (Supabase MCP connected) |
+| Quick file edits, terminal commands | Claude Cowork (Desktop Commander) |
+
+**Supabase MCP is connected in Cowork** — SQL migrations and table changes can be run directly from Cowork without opening the Supabase dashboard.
+
+**Vercel MCP is connected in Cowork** — Frontend can be deployed and monitored directly from Cowork.
+
 ---
 
 ## Team Responsibilities
@@ -307,7 +668,7 @@ Response:
 | Person | Role | Owns These Files |
 |--------|------|-----------------|
 | **Bharat** | AI & Backend | `agents/`, `tools/`, `main.py`, `routers/` |
-| **Vivek** | Data Pipeline | `pipelines/`, `db/`, Supabase schema |
+| **Vivek** | Data Pipeline | `pipelines/`, `db/`, Supabase schema, Mem0 integration |
 | **Anish** | Frontend | `pages/`, `components/`, `hooks/` |
 | **Rohit** | UI & Testing | `pages/Onboarding.jsx`, test files, deployment |
 
@@ -338,6 +699,7 @@ Claude Code must follow this order. Never build Phase N+1 until Phase N is teste
 Phase 1 — Foundation (Week 1-2)
   [ ] GitHub repo created, all 4 members added
   [ ] Supabase project created, pgvector extension enabled
+  [ ] SQL schema above applied in Supabase SQL editor
   [ ] FastAPI backend running, /health returns {"status": "ok"}
   [ ] OpenAI API key confirmed working (test call returns response)
   [ ] React app running on localhost:5173 with 3 routes
@@ -356,18 +718,20 @@ Phase 3 — Frontend (Week 6-7)
   [ ] Patient chat UI — large text, voice input, TTS output working
   [ ] Caregiver dashboard — shows summary, mood chart, concern alerts
   [ ] All pages connected to backend via src/api/client.js
+  [ ] Accessibility review run on patient chat screen
 
 Phase 4 — Testing (Week 8-9)
-  [ ] 5 scripted conversation scenarios tested and documented
-  [ ] Distress detection + redirect tested
+  [ ] All 5 evaluation scenarios tested and documented
+  [ ] Distress detection accuracy measured (target ≥ 90%)
   [ ] Cross-session memory tested (run 3 sessions, confirm recall)
   [ ] Caregiver report tested for accuracy
+  [ ] Response latency measured (target < 3 seconds)
 
 Phase 5 — Submission (Week 10)
   [ ] Deployed to Vercel (frontend) + Railway (backend)
   [ ] Screen recording demo completed
-  [ ] Research paper written
-  [ ] Presentation slides completed
+  [ ] Research paper written (read .claude/skills/docx/SKILL.md first)
+  [ ] Presentation slides completed (read .claude/skills/pptx/SKILL.md first)
 ```
 
 ---
@@ -387,8 +751,8 @@ Output: [what file(s) to create or modify]
 **Example:**
 ```
 Context: Here is my current backend/agents/mood.py: [paste file]
-Task: Add error handling so that if the OpenAI API call fails, 
-      the function returns {"sentiment": "neutral", "confidence": 0.0} 
+Task: Add error handling so that if the OpenAI API call fails,
+      the function returns {"sentiment": "neutral", "confidence": 0.0}
       instead of raising an exception.
 Rules: Use specific exception types, not bare except. Add a docstring.
 Output: Updated mood.py file.
@@ -423,6 +787,9 @@ Output: Updated mood.py file.
 | `Web Speech API not working` | Not on Chrome/Edge | Web Speech API only works in Chrome and Edge |
 | `LangGraph state error` | Missing key in AgentState | Check all nodes return complete state dict |
 | `OpenAI rate limit` | Too many test calls | Add `time.sleep(1)` between test calls |
+| `vector dimension mismatch` | Wrong embedding model used | Always use text-embedding-3-small (1536 dims) |
+| `Supabase RLS blocking insert` | Row Level Security policy missing | Add RLS policy or use service key for backend |
+| `Vite CORS on localhost` | Vite proxy not set | Add proxy config in vite.config.js |
 
 ---
 
