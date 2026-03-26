@@ -2,8 +2,7 @@
 
 A web app where a caregiver uploads a patient's photos and life story once, and an AI companion holds warm, personalised daily conversations with the patient — detecting emotional distress and auto-generating caregiver reports.
 
-**Course:** ITEC630 — Masters IT Project, ACU Sydney
-**Team:** Bharat (AI/Backend) · Vivek (Data Pipeline) · Anish (Frontend) · Rohit (UI & Testing)
+
 
 ---
 
@@ -52,27 +51,56 @@ DATA LAYER
 
 ---
 
+## Prerequisites
+
+- Python 3.11+
+- Node.js 18+
+- A Supabase account (free tier) with pgvector enabled
+- An OpenAI API key
+- A Mem0 API key (free tier at mem0.ai)
+
 ## Local Setup
 
-### Backend
+### 1. Environment Variables
+
+```bash
+cp .env.example backend/.env
+# Fill in your API keys in backend/.env:
+#   OPENAI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY, MEM0_API_KEY
+```
+
+### 2. Backend
 
 ```bash
 cd backend
-cp ../.env.example .env
-# Fill in your API keys in .env
+python3 -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn backend.main:app --reload
-# API available at http://localhost:8000
-# Health check: GET http://localhost:8000/health
+uvicorn main:app --reload --port 8000
 ```
 
-### Frontend
+Verify: `curl http://localhost:8000/health` should return `{"status":"ok","service":"memory-companion-agent"}`
+
+### 3. Frontend (separate terminal)
 
 ```bash
 cd frontend
 npm install
 npm run dev
-# App available at http://localhost:5173
+```
+
+Open http://localhost:5173 in your browser (Chrome/Edge recommended for voice features).
+
+### Returning After First Setup
+
+Backend:
+```bash
+cd backend && source venv/bin/activate && uvicorn main:app --reload --port 8000
+```
+
+Frontend:
+```bash
+cd frontend && npm run dev
 ```
 
 ---
@@ -80,10 +108,10 @@ npm run dev
 ## Branch Naming Convention
 
 ```
-feature/bharat-reminiscence-agent
+feature/vivek-reminiscence-agent
 feature/vivek-rag-pipeline
-feature/anish-chat-ui
-feature/rohit-onboarding-form
+feature/vivek-chat-ui
+feature/vivek-onboarding-form
 fix/bharat-mood-routing-bug
 ```
 
@@ -98,4 +126,4 @@ fix/bharat-mood-routing-bug
 
 ---
 
-*Memory Companion Agent | ITEC630 ACU Sydney | Team: Bharat · Vivek · Anish · Rohit*
+*Memory Companion Agent 
