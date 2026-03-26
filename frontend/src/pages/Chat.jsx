@@ -14,7 +14,7 @@ const GREETINGS = [
 
 export default function Chat() {
   const { messages, loading, send } = useChat(PATIENT_ID)
-  const { listening, speaking, transcript, startListening, speak, clearTranscript } = useSpeech()
+  const { listening, speaking, transcript, startListening, speak, clearTranscript, voicesReady } = useSpeech()
   const [started, setStarted] = useState(false)
   const [mode, setMode] = useState('voice') // 'voice' or 'text'
   const [textInput, setTextInput] = useState('')
