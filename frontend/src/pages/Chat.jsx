@@ -1,5 +1,5 @@
-// Chat page — patient-facing conversational AI companion interface
-import React, { useState, useEffect, useRef } from 'react'
+// Chat page — voice-first conversational AI companion interface
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import MessageBubble from '../components/MessageBubble.jsx'
 import { useChat } from '../hooks/useChat.js'
 import { useSpeech } from '../hooks/useSpeech.js'
@@ -14,7 +14,7 @@ const GREETINGS = [
 
 export default function Chat() {
   const { messages, loading, send } = useChat(PATIENT_ID)
-  const { listening, transcript, startListening, speak, clearTranscript } = useSpeech()
+  const { listening, speaking, transcript, startListening, speak, clearTranscript } = useSpeech()
   const [started, setStarted] = useState(false)
   const [mode, setMode] = useState('voice') // 'voice' or 'text'
   const [textInput, setTextInput] = useState('')
@@ -24,33 +24,42 @@ export default function Chat() {
   // Auto-scroll to latest message
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, listening])
+  }, [messages, listening, speaking])
 
-  // Auto-read every NEW assistant message aloud
+  // When a NEW assistant message arrives, speak it aloud — then auto-listen when done
   useEffect(() => {
     if (messages.length > prevMsgCount.current) {
       const last = messages[messages.length - 1]
-      if (last?.role === 'assistant') {
+      if (last?.role === 'assistant' && mode === 'voice') {
+        speak(last.content, () => {
+          // AI finished speaking → automatically start listening for patient
+          startListening()
+        })
+      } else if (last?.role === 'assistant' && mode === 'text') {
+        // In text mode, just speak but don't auto-listen
         speak(last.content)
       }
     }
     prevMsgCount.current = messages.length
-  }, [messages, speak])
+  }, [messages, speak, startListening, mode])
 
   // Auto-send when speech recognition ends with a transcript
   useEffect(() => {
-    if (!listening && transcript && mode === 'voice') {
+    if (!listening && transcript) {
       send(transcript)
       clearTranscript()
     }
-  }, [listening, transcript, mode, send, clearTranscript])
+  }, [listening, transcript, send, clearTranscript])
 
   const handleStart = () => {
     setStarted(true)
     const greeting = GREETINGS[Math.floor(Math.random() * GREETINGS.length)]
-    speak(greeting)
-    // Add greeting as first message manually since it doesn't go through the backend
+    // Add greeting as first message
     send.__addAssistantMessage(greeting)
+    // Speak it, then auto-listen when done
+    speak(greeting, () => {
+      if (mode === 'voice') startListening()
+    })
   }
 
   const handleTextSend = () => {
@@ -58,6 +67,14 @@ export default function Chat() {
       send(textInput.trim())
       setTextInput('')
     }
+  }
+
+  // Current conversation status for the patient
+  const getStatus = () => {
+    if (speaking) return 'Companion is speaking...'
+    if (listening) return 'Listening to you...'
+    if (loading) return 'Thinking...'
+    return mode === 'voice' ? 'Press the button to speak' : ''
   }
 
   // Start conversation screen — one big button, nothing else
@@ -123,19 +140,20 @@ export default function Chat() {
           {messages.map((m, i) => (
             <MessageBubble key={i} role={m.role} content={m.content} />
           ))}
-          {loading && (
-            <div style={{ fontSize: '26px', color: '#6b7280', padding: '8px 16px' }}>
-              Thinking...
-            </div>
-          )}
-          {listening && (
-            <div style={{ fontSize: '26px', color: '#4f46e5', padding: '8px 16px' }}>
-              Listening...
-            </div>
-          )}
           <div ref={bottomRef} />
         </div>
       </div>
+
+      {/* Status indicator */}
+      {getStatus() && (
+        <div style={{
+          textAlign: 'center', padding: '12px',
+          fontSize: '22px', color: speaking ? '#4f46e5' : listening ? '#059669' : '#6b7280',
+          fontWeight: '500',
+        }}>
+          {getStatus()}
+        </div>
+      )}
 
       {/* Input area */}
       <div style={{
@@ -143,21 +161,21 @@ export default function Chat() {
         backgroundColor: '#f9fafb',
       }}>
         {mode === 'voice' ? (
-          /* Voice mode — one big microphone button */
+          /* Voice mode — one big microphone button, patient can also manually press */
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <button
               onClick={startListening}
-              disabled={listening || loading}
+              disabled={listening || loading || speaking}
               aria-label="Speak to your companion"
               style={{
                 width: '100px', height: '100px', borderRadius: '50%',
-                backgroundColor: listening ? '#6366f1' : loading ? '#a5b4fc' : '#4f46e5',
+                backgroundColor: listening ? '#059669' : speaking ? '#a5b4fc' : loading ? '#a5b4fc' : '#4f46e5',
                 color: 'white', border: 'none', fontSize: '42px',
-                cursor: listening || loading ? 'not-allowed' : 'pointer',
-                boxShadow: listening ? '0 0 0 8px rgba(99, 102, 241, 0.3)' : 'none',
+                cursor: listening || loading || speaking ? 'not-allowed' : 'pointer',
+                boxShadow: listening ? '0 0 0 8px rgba(5, 150, 105, 0.3)' : 'none',
               }}
             >
-              {listening ? '...' : '🎤'}
+              {listening ? '👂' : '🎤'}
             </button>
           </div>
         ) : (

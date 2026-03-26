@@ -3,8 +3,10 @@ import { useState, useCallback, useRef } from 'react'
 
 export function useSpeech() {
   const [listening, setListening] = useState(false)
+  const [speaking, setSpeaking] = useState(false)
   const [transcript, setTranscript] = useState('')
   const recognitionRef = useRef(null)
+  const onSpeechEndRef = useRef(null)
 
   const startListening = useCallback(() => {
     /**Start speech recognition — supported in Chrome and Edge only.*/
@@ -31,17 +33,29 @@ export function useSpeech() {
     setTranscript('') // Clear previous transcript
   }, [])
 
-  const speak = useCallback((text) => {
-    /**Read text aloud using browser built-in TTS at a gentle pace.*/
-    if (!('speechSynthesis' in window)) return
+  const speak = useCallback((text, onEnd) => {
+    /**Read text aloud using browser TTS. Calls onEnd when finished speaking.*/
+    if (!('speechSynthesis' in window)) {
+      if (onEnd) onEnd()
+      return
+    }
     window.speechSynthesis.cancel() // Stop any in-progress speech
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.rate = 0.85
     utterance.pitch = 1
+    utterance.onstart = () => setSpeaking(true)
+    utterance.onend = () => {
+      setSpeaking(false)
+      if (onEnd) onEnd()
+    }
+    utterance.onerror = () => {
+      setSpeaking(false)
+      if (onEnd) onEnd()
+    }
     window.speechSynthesis.speak(utterance)
   }, [])
 
   const clearTranscript = useCallback(() => setTranscript(''), [])
 
-  return { listening, transcript, startListening, speak, clearTranscript }
+  return { listening, speaking, transcript, startListening, speak, clearTranscript }
 }
