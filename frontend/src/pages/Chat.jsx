@@ -3,8 +3,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import MessageBubble from '../components/MessageBubble.jsx'
 import { useChat } from '../hooks/useChat.js'
 import { useSpeech } from '../hooks/useSpeech.js'
-
-const PATIENT_ID = localStorage.getItem('patient_id') || 'patient_001'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const GREETINGS = [
   "Hello! It's so lovely to see you today. How are you feeling?",
@@ -13,7 +12,8 @@ const GREETINGS = [
 ]
 
 export default function Chat() {
-  const { messages, loading, send } = useChat(PATIENT_ID)
+  const { patientId } = useAuth()
+  const { messages, loading, send } = useChat(patientId || 'patient_001')
   const { listening, speaking, transcript, startListening, stopListening, speak, clearTranscript } = useSpeech()
   const [started, setStarted] = useState(false)
   const [mode, setMode] = useState('voice')
@@ -119,10 +119,11 @@ export default function Chat() {
         <span style={{ fontSize: '26px', fontWeight: 'bold' }}>Your Companion</span>
         <button
           onClick={() => setMode(mode === 'voice' ? 'text' : 'voice')}
+          aria-label={mode === 'voice' ? 'Switch to text input mode' : 'Switch to voice input mode'}
           style={{
             backgroundColor: 'rgba(255,255,255,0.2)', color: 'white',
-            border: 'none', borderRadius: '8px', padding: '8px 16px',
-            fontSize: '16px', cursor: 'pointer',
+            border: 'none', borderRadius: '10px', padding: '14px 20px',
+            fontSize: '18px', cursor: 'pointer', minHeight: '52px',
           }}
         >
           {mode === 'voice' ? 'Switch to Text' : 'Switch to Voice'}
@@ -141,11 +142,15 @@ export default function Chat() {
 
       {/* Status */}
       {getStatus() && (
-        <div style={{
-          textAlign: 'center', padding: '12px', fontSize: '22px',
-          color: speaking ? '#4f46e5' : listening ? '#059669' : '#6b7280',
-          fontWeight: '500',
-        }}>
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            textAlign: 'center', padding: '12px', fontSize: '24px',
+            color: speaking ? '#3730a3' : listening ? '#065f46' : '#374151',
+            fontWeight: '500',
+          }}
+        >
           {getStatus()}
         </div>
       )}

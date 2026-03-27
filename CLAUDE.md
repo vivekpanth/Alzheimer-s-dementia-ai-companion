@@ -729,7 +729,7 @@ Phase 3 — Frontend (Week 6-7)
   [x] Patient chat UI — large text, voice input, TTS output working
   [x] Caregiver dashboard — shows summary, mood chart, concern alerts
   [x] All pages connected to backend via src/api/client.js
-  [ ] Accessibility review run on patient chat screen
+  [x] Accessibility review run on patient chat screen
 
 Phase 4 — Testing (Week 8-9)
   [ ] All 5 evaluation scenarios tested and documented
