@@ -3,73 +3,112 @@ import React, { useState, useEffect } from 'react'
 import MoodChart from '../components/MoodChart.jsx'
 import ConcernAlert from '../components/ConcernAlert.jsx'
 import { getReport } from '../api/client.js'
+import { useAuth } from '../context/AuthContext.jsx'
 
 export default function Dashboard() {
+  const { patientId, caregiver, logout } = useAuth()
   const [report, setReport] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [userId, setUserId] = useState(localStorage.getItem('patient_id') || '')
-  const [inputId, setInputId] = useState(localStorage.getItem('patient_id') || '')
   const [error, setError] = useState('')
 
-  const fetchReport = async (id) => {
-    if (!id.trim()) { setError('Enter a patient ID.'); return }
+  const fetchReport = async () => {
+    if (!patientId) return
     setError('')
     setLoading(true)
     try {
-      const res = await getReport(id.trim())
+      const res = await getReport(patientId)
       setReport(res.data)
-      setUserId(id.trim())
-      localStorage.setItem('patient_id', id.trim())
     } catch (err) {
-      setError('Could not load report. Check the patient ID and try again.')
+      setError('Could not load report. No sessions found yet.')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    if (userId) fetchReport(userId)
-  }, [])
+    if (patientId) fetchReport()
+  }, [patientId])
+
+  const handleLogout = async () => {
+    await logout()
+    window.location.href = '/login'
+  }
 
   return (
     <div
       className="max-w-3xl mx-auto p-8"
       style={{ fontFamily: 'system-ui, Arial, sans-serif' }}
     >
-      <h1 style={{ fontSize: '30px', fontWeight: 'bold', color: '#111827', marginBottom: '24px' }}>
-        Caregiver Dashboard
-      </h1>
-
-      {/* Patient ID lookup */}
-      <div className="bg-white rounded-xl shadow p-6 mb-6">
-        <label style={{ display: 'block', fontSize: '16px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
-          Patient ID
-        </label>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <input
-            type="text"
-            value={inputId}
-            onChange={(e) => setInputId(e.target.value)}
-            placeholder="e.g. margaret_001"
-            style={{ flex: 1, border: '1px solid #d1d5db', borderRadius: '8px', padding: '10px 14px', fontSize: '18px' }}
-          />
-          <button
-            onClick={() => fetchReport(inputId)}
-            disabled={loading}
-            style={{
-              backgroundColor: '#4f46e5', color: 'white', padding: '10px 24px',
-              borderRadius: '8px', fontSize: '16px', fontWeight: '600',
-              border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.6 : 1
-            }}
-          >
-            {loading ? 'Loading...' : 'Load Report'}
-          </button>
+      {/* Header with nav */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <h1 style={{ fontSize: '30px', fontWeight: 'bold', color: '#111827', margin: 0 }}>
+            Caregiver Dashboard
+          </h1>
+          {caregiver && (
+            <p style={{ fontSize: '15px', color: '#6b7280', marginTop: '4px' }}>
+              Welcome, {caregiver.full_name}
+              {patientId && <> · Patient: <strong>{patientId}</strong></>}
+            </p>
+          )}
         </div>
-        {error && (
-          <p style={{ fontSize: '15px', color: '#dc2626', marginTop: '8px' }}>{error}</p>
+        <button
+          onClick={handleLogout}
+          style={{
+            backgroundColor: 'white', color: '#6b7280', border: '1px solid #d1d5db',
+            borderRadius: '8px', padding: '8px 16px', fontSize: '15px', cursor: 'pointer',
+          }}
+        >
+          Sign Out
+        </button>
+      </div>
+
+      {/* Navigation buttons */}
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        {patientId && (
+          <>
+            <a href="/chat" style={{
+              backgroundColor: '#4f46e5', color: 'white', padding: '10px 20px',
+              borderRadius: '8px', fontSize: '16px', fontWeight: '600', textDecoration: 'none',
+            }}>
+              Open Companion
+            </a>
+            <a href="/update-patient" style={{
+              backgroundColor: 'white', color: '#4f46e5', padding: '10px 20px',
+              borderRadius: '8px', fontSize: '16px', fontWeight: '600', textDecoration: 'none',
+              border: '2px solid #4f46e5',
+            }}>
+              Add More Data
+            </a>
+          </>
+        )}
+        {!patientId && (
+          <a href="/onboarding" style={{
+            backgroundColor: '#4f46e5', color: 'white', padding: '10px 20px',
+            borderRadius: '8px', fontSize: '16px', fontWeight: '600', textDecoration: 'none',
+          }}>
+            Set Up Patient
+          </a>
         )}
       </div>
+
+      {!patientId && (
+        <div className="bg-white rounded-xl shadow p-6 mb-6 text-center">
+          <p style={{ fontSize: '18px', color: '#374151' }}>No patient linked yet. Set up your patient to get started.</p>
+        </div>
+      )}
+
+      {patientId && loading && (
+        <div className="bg-white rounded-xl shadow p-6 mb-6 text-center">
+          <p style={{ fontSize: '18px', color: '#6b7280' }}>Loading report...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-white rounded-xl shadow p-6 mb-6">
+          <p style={{ fontSize: '16px', color: '#6b7280', textAlign: 'center' }}>{error}</p>
+        </div>
+      )}
 
       {/* Report */}
       {report && (

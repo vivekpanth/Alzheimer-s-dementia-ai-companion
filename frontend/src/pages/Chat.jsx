@@ -3,8 +3,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import MessageBubble from '../components/MessageBubble.jsx'
 import { useChat } from '../hooks/useChat.js'
 import { useSpeech } from '../hooks/useSpeech.js'
-
-const PATIENT_ID = localStorage.getItem('patient_id') || 'patient_001'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const GREETINGS = [
   "Hello! It's so lovely to see you today. How are you feeling?",
@@ -13,7 +12,8 @@ const GREETINGS = [
 ]
 
 export default function Chat() {
-  const { messages, loading, send } = useChat(PATIENT_ID)
+  const { patientId } = useAuth()
+  const { messages, loading, send } = useChat(patientId || 'patient_001')
   const { listening, speaking, transcript, startListening, stopListening, speak, clearTranscript } = useSpeech()
   const [started, setStarted] = useState(false)
   const [mode, setMode] = useState('voice')
