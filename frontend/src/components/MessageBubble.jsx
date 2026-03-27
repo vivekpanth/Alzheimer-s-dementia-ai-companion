@@ -5,12 +5,22 @@ export default function MessageBubble({ role, content }) {
   /** Render a chat bubble with different styles for user and assistant messages */
   const isAssistant = role === 'assistant'
   return (
-    <div className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}>
-      <div className={`max-w-xs lg:max-w-md px-5 py-3 rounded-2xl text-2xl leading-relaxed ${
-        isAssistant
-          ? 'bg-indigo-100 text-indigo-900'
-          : 'bg-gray-800 text-white'
-      }`}>
+    <div
+      className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}
+      role="log"
+      aria-label={isAssistant ? 'Companion message' : 'Your message'}
+    >
+      <div
+        style={{
+          maxWidth: '85%',
+          padding: '16px 20px',
+          borderRadius: '16px',
+          fontSize: '24px',
+          lineHeight: '1.6',
+          backgroundColor: isAssistant ? '#e0e7ff' : '#1f2937',
+          color: isAssistant ? '#1e1b4b' : '#ffffff',
+        }}
+      >
         {content}
       </div>
     </div>
