@@ -24,15 +24,24 @@ A web app where a caregiver uploads a patient's photos and life story once, and 
 
 ```
 FRONTEND (React + Tailwind)
+  /patient      → Multi-patient management (list, details, add, remove, select active)
   /onboarding   → Caregiver uploads bio, photos (with per-photo descriptions), family details
   /chat         → Voice-first AI companion (AI speaks first, auto-listens, auto-responds) + text fallback
   /dashboard    → Caregiver daily summary, mood chart, concern alerts
 
 BACKEND (FastAPI — Python)
-  POST /ingest        → Receives onboarding data, stores in Supabase
-  POST /chat          → Receives patient message, runs LangGraph agents
-  POST /voice         → Receives audio, returns transcription (Web Speech API handles client-side)
-  GET  /report/{uid}  → Returns daily session summary for caregiver dashboard
+  POST /ingest                    → Receives onboarding data, chunks biography, captions photos, stores embeddings
+  POST /chat                      → Receives patient message, runs LangGraph pipeline, accumulates session log
+  POST /session/end               → Ends session, runs Report Agent, persists session + report to Supabase
+  GET  /report/{uid}              → Returns latest session report for caregiver dashboard
+  GET  /patient/{uid}/profile     → Returns biography, family, topics, photo memories
+  GET  /caregiver/{uid}/patients  → Lists all patients for a caregiver
+  POST /caregiver/ensure          → Upserts caregiver row on login (idempotent, fixes signup race condition)
+  POST /caregiver/patients/add    → Links patient to caregiver, sets as active
+  DELETE /caregiver/patients/remove → Removes patient from list (keeps all data)
+  PATCH /caregiver/link           → Sets the active patient for chat
+  DELETE /patient/{uid}           → Permanently deletes all patient data
+  GET  /health                    → Health check
 
 AI LAYER (LangGraph + OpenAI)
   Supervisor Agent    → Routes messages between agents based on sentiment
@@ -240,9 +249,11 @@ memory-companion-agent/
 │   │
 │   └── routers/
 │       ├── __init__.py
-│       ├── chat.py            ← /chat endpoint
+│       ├── chat.py            ← /chat endpoint (accumulates session log in memory)
 │       ├── ingest.py          ← /ingest endpoint
-│       └── report.py          ← /report endpoint
+│       ├── report.py          ← /report endpoint
+│       ├── patient.py         ← /patient and /caregiver endpoints
+│       └── session.py         ← /session/end endpoint (Report Agent + Supabase save)
 │
 └── frontend/
     ├── package.json
@@ -255,9 +266,11 @@ memory-companion-agent/
         ├── api/
         │   └── client.js      ← axios instance, all API calls centralised here
         ├── pages/
-        │   ├── Onboarding.jsx ← caregiver onboarding form
-        │   ├── Chat.jsx       ← patient chat interface
-        │   └── Dashboard.jsx  ← caregiver dashboard
+        │   ├── PatientManagement.jsx ← /patient — multi-patient list, details, manage
+        │   ├── Onboarding.jsx        ← caregiver onboarding form
+        │   ├── Chat.jsx              ← patient chat interface (End Session + auto-timeout)
+        │   ├── Dashboard.jsx         ← caregiver dashboard
+        │   └── UpdatePatient.jsx     ← add more memories to existing patient
         ├── components/
         │   ├── VoiceInput.jsx    ← microphone button + Web Speech API
         │   ├── MessageBubble.jsx
@@ -570,10 +583,38 @@ Response:
 }
 ```
 
+### POST /session/end
+```json
+Request:
+{
+  "user_id": "margaret_001",
+  "session_id": "sess_1774672921962"
+}
+
+Response:
+{
+  "status": "ended",
+  "session_id": "sess_1774672921962",
+  "summary": "Margaret spoke warmly about her garden today...",
+  "mood_trend": ["happy", "happy", "neutral"],
+  "duration_minutes": 12
+}
+```
+
 ### GET /health
 ```json
-Response: {"status": "ok", "version": "1.0.0"}
+Response: {"status": "ok", "service": "memory-companion-agent"}
 ```
+
+### Important Implementation Notes
+
+- `/chat` accumulates session log in `routers/chat._sessions` (in-memory dict keyed by session_id)
+- `/session/end` calls `generate_report()` directly — NOT through the full LangGraph graph (avoids Mem0 empty-message errors)
+- Reminiscence Agent fetches patient profile from `patient_profiles` table and includes it in system prompt so the AI always knows the patient's name, family, and topics even before RAG results arrive
+- RAG similarity threshold is 0.4 (lowered from 0.7 — 0.7 was rejecting nearly all matches)
+- `family_members` in `patient_profiles` may be empty if caregiver used the biography text field instead of the structured field — agent falls back to `biography_text` directly
+- All `/caregiver/*` endpoints use the service key (bypasses RLS) — never use anon key for caregiver writes
+- `maybeSingle()` in supabase-py is `maybe_single()` (snake_case) — wrong casing causes silent 500 crashes
 
 ---
 
@@ -729,14 +770,18 @@ Phase 3 — Frontend (Week 6-7)
   [x] Patient chat UI — large text, voice input, TTS output working
   [x] Caregiver dashboard — shows summary, mood chart, concern alerts
   [x] All pages connected to backend via src/api/client.js
-  [x] Accessibility review run on patient chat screen
+  [x] Multi-patient management page (/patient) — list, details, add, remove, select active
+  [x] Session end — "End Session" button + 3-min auto-timeout → generates report → shows summary screen
+  [x] Post-session screen with report summary + links to dashboard and new conversation
+  [ ] Accessibility review run on patient chat screen
 
 Phase 4 — Testing (Week 8-9)
   [ ] All 5 evaluation scenarios tested and documented
   [ ] Distress detection accuracy measured (target ≥ 90%)
   [ ] Cross-session memory tested (run 3 sessions, confirm recall)
-  [ ] Caregiver report tested for accuracy
+  [ ] Caregiver report tested for accuracy (report visible in dashboard after session end)
   [ ] Response latency measured (target < 3 seconds)
+  [ ] Verify AI only uses facts from biography/RAG — no hallucination
 
 Phase 5 — Submission (Week 10)
   [ ] Deployed to Vercel (frontend) + Railway (backend)

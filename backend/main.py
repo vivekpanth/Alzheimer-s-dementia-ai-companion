@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import uvicorn
 
-from routers import chat, ingest, report
+from routers import chat, ingest, report, patient, session
 
 load_dotenv()
 
@@ -25,6 +25,7 @@ def get_cors_origins() -> list[str]:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
+    allow_origin_regex=r"http://localhost:\d+",  # allow any localhost port for local dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,6 +34,8 @@ app.add_middleware(
 app.include_router(chat.router)
 app.include_router(ingest.router)
 app.include_router(report.router)
+app.include_router(patient.router)
+app.include_router(session.router)
 
 
 @app.get("/health")

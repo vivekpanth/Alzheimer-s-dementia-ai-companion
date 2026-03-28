@@ -26,4 +26,31 @@ export const ingestPatientData = (formData) =>
 export const getReport = (userId) =>
   client.get(`/report/${userId}`)
 
+export const getPatientInfo = (userId) =>
+  client.get(`/patient/${userId}`)
+
+export const getPatientProfile = (userId) =>
+  client.get(`/patient/${userId}/profile`)
+
+export const deletePatient = (userId) =>
+  client.delete(`/patient/${userId}`)
+
+export const linkPatientToCaregiver = (authUserId, patientUserId) =>
+  client.patch('/caregiver/link', { auth_user_id: authUserId, patient_user_id: patientUserId })
+
+export const ensureCaregiver = (authUserId, email, fullName) =>
+  client.post('/caregiver/ensure', { auth_user_id: authUserId, email, full_name: fullName })
+
+export const getCaregiverPatients = (authUserId) =>
+  client.get(`/caregiver/${authUserId}/patients`)
+
+export const addPatientToCaregiver = (authUserId, patientUserId, displayName = '') =>
+  client.post('/caregiver/patients/add', { auth_user_id: authUserId, patient_user_id: patientUserId, display_name: displayName })
+
+export const removePatientFromCaregiver = (authUserId, patientUserId) =>
+  client.delete('/caregiver/patients/remove', { data: { auth_user_id: authUserId, patient_user_id: patientUserId } })
+
+export const endSession = (userId, sessionId) =>
+  client.post('/session/end', { user_id: userId, session_id: sessionId })
+
 export default client

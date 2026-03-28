@@ -41,10 +41,42 @@ async def search_embeddings(
         result = get_client().rpc("search_biography", {
             "query_embedding": query_embedding,
             "match_user_id": user_id,
-            "match_threshold": 0.7,
+            "match_threshold": 0.4,
             "match_count": top_k,
         }).execute()
         return result.data or []
     except Exception:
-        # Return empty if function not yet available (schema cache lag) or no data
         return []
+
+
+async def save_session(
+    user_id: str,
+    session_id: str,
+    session_log: list,
+    mood_trend: list,
+    duration_minutes: int,
+) -> None:
+    """Upsert session record with full log, mood trend, and duration."""
+    get_client().table("sessions").upsert({
+        "session_id": session_id,
+        "user_id": user_id,
+        "session_log": session_log,
+        "mood_trend": mood_trend,
+        "duration_minutes": duration_minutes,
+        "is_complete": True,
+    }, on_conflict="session_id").execute()
+
+
+async def save_report(
+    user_id: str,
+    session_id: str,
+    summary: str,
+    concerns: list,
+) -> None:
+    """Insert caregiver report for this session."""
+    get_client().table("caregiver_reports").insert({
+        "user_id": user_id,
+        "session_id": session_id,
+        "summary": summary,
+        "concerns": concerns,
+    }).execute()

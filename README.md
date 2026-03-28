@@ -30,9 +30,19 @@ A web app where a caregiver uploads a patient's photos and life story once, and 
 - **Report Agent** — generates end-of-session caregiver summaries with mood trends and concern flags
 - **Supervisor** — routes messages through the pipeline based on real-time sentiment
 
+### Multi-Patient Management (`/patient`)
+- Caregiver can manage multiple patients from one account
+- Per-patient detail view: biography, family members, favourite topics, photo memories, session stats
+- Select active patient for chat, add new patients, remove from list, or delete all data
+
+### Session End & Reports
+- Companion auto-ends after 3 minutes of inactivity, or caregiver presses "End Session"
+- Report Agent generates a plain-English session summary on session end
+- Session and report saved to Supabase; report available immediately on the dashboard
+
 ### Caregiver Dashboard (`/dashboard`)
-- Daily session summary in plain English
-- Mood trend chart (Recharts)
+- Latest session summary in plain English
+- Mood trend chart across conversation turns (Recharts)
 - Concern alerts when distress patterns repeat across sessions
 
 ---
@@ -63,10 +73,18 @@ FRONTEND (React + Tailwind)
   /dashboard    → Caregiver daily summary, mood chart, concern alerts
 
 BACKEND (FastAPI — Python)
-  POST /ingest        → Receives onboarding data, chunks biography, captions photos, stores embeddings
-  POST /chat          → Receives patient message, runs LangGraph agent pipeline, returns response
-  GET  /report/{uid}  → Returns daily session summary for caregiver dashboard
-  GET  /health        → Health check
+  POST /ingest              → Receives onboarding data, chunks biography, captions photos, stores embeddings
+  POST /chat                → Receives patient message, runs LangGraph agent pipeline, returns response
+  POST /session/end         → Ends session, runs Report Agent, persists session + report to Supabase
+  GET  /report/{uid}        → Returns latest session report for caregiver dashboard
+  GET  /patient/{uid}/profile → Returns biography, family, topics, photo memories for patient detail view
+  GET  /caregiver/{uid}/patients → Lists all patients linked to a caregiver
+  POST /caregiver/ensure    → Creates caregiver row on first login (idempotent)
+  POST /caregiver/patients/add  → Links patient to caregiver and makes them active
+  DELETE /caregiver/patients/remove → Removes patient from caregiver list (keeps data)
+  PATCH /caregiver/link     → Sets the active patient for chat
+  DELETE /patient/{uid}     → Deletes all patient data permanently
+  GET  /health              → Health check
 
 AI AGENTS (LangGraph + OpenAI)
   Supervisor Agent    → Routes messages between agents based on sentiment
