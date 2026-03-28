@@ -30,6 +30,15 @@ async def ingest(
     family_list = [f.strip() for f in family_members.split(",")] if family_members else []
     topics_list = [t.strip() for t in favourite_topics.split(",")] if favourite_topics else []
 
+    from db.supabase_client import get_client
+    # Upsert raw profile so caregivers can view/manage what they uploaded
+    get_client().table("patient_profiles").upsert({
+        "user_id": user_id,
+        "biography_text": biography,
+        "family_members": family_list,
+        "favourite_topics": topics_list,
+    }, on_conflict="user_id").execute()
+
     result = await ingest_biography(
         user_id=user_id,
         biography=biography,

@@ -5,7 +5,7 @@ import { ingestPatientData } from '../api/client.js'
 import { useAuth } from '../context/AuthContext.jsx'
 
 export default function Onboarding() {
-  const { linkPatient, patientId } = useAuth()
+  const { addPatient, patientId } = useAuth()
   const [userId, setUserId] = useState(patientId || '')
   const [biography, setBiography] = useState('')
   const [familyMembers, setFamilyMembers] = useState('')
@@ -36,10 +36,10 @@ export default function Onboarding() {
 
     try {
       const res = await ingestPatientData(formData)
+      await addPatient(userId.trim())
       setResult(res.data)
-      await linkPatient(userId.trim())
     } catch (err) {
-      setError('Could not save. Please check your connection and try again.')
+      setError(err.message?.includes('RLS') ? 'Account permission error — please contact support.' : 'Could not save. Please check your connection and try again.')
     } finally {
       setLoading(false)
     }

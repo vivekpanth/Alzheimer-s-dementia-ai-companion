@@ -8,6 +8,7 @@ import Onboarding from './pages/Onboarding.jsx'
 import Chat from './pages/Chat.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import UpdatePatient from './pages/UpdatePatient.jsx'
+import PatientManagement from './pages/PatientManagement.jsx'
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
@@ -19,12 +20,12 @@ function ProtectedRoute({ children }) {
 function PublicRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '20px', color: '#6b7280' }}>Loading...</div>
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />
+  if (isAuthenticated) return <Navigate to="/patient" replace />
   return children
 }
 
 function AppRoutes() {
-  const { isAuthenticated, patientId } = useAuth()
+  const { isAuthenticated } = useAuth()
 
   return (
     <Routes>
@@ -37,9 +38,10 @@ function AppRoutes() {
       <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/update-patient" element={<ProtectedRoute><UpdatePatient /></ProtectedRoute>} />
+      <Route path="/patient" element={<ProtectedRoute><PatientManagement /></ProtectedRoute>} />
 
-      {/* Default redirect */}
-      <Route path="/" element={<Navigate to={isAuthenticated ? (patientId ? '/dashboard' : '/onboarding') : '/login'} replace />} />
+      {/* Default redirect — always go to /patient when logged in */}
+      <Route path="/" element={<Navigate to={isAuthenticated ? '/patient' : '/login'} replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

@@ -1,20 +1,57 @@
-# Reminiscence Agent — retrieves biography RAG + Mem0 memories and generates warm response
+# Reminiscence Agent — retrieves biography RAG + Mem0 memories and generates warm, grounded response
 import os
 from openai import AsyncOpenAI
 from agents.supervisor import AgentState
 from tools.search_biography import search_biography
 from tools.recall_session import recall_session, save_to_memory
+from db.supabase_client import get_client
 
 
 def _get_openai() -> AsyncOpenAI:
     """Return OpenAI client, reading key at call time so dotenv is already loaded."""
     return AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-_SYSTEM_PROMPT = """You are a warm, caring AI companion talking with an elderly person with memory difficulties.
-You only speak about things you know are true from their personal story.
-Keep responses to 2-3 sentences — never long paragraphs.
-Ask one follow-up question per response to keep the conversation going.
-Use a warm, gentle, first-name tone. Never invent names, dates, places, or relationships."""
+
+def _build_system_prompt(profile: dict | None) -> str:
+    """Build the system prompt enriched with the patient's personal profile."""
+    name = "friend"
+    family_line = ""
+    topics_line = ""
+
+    if profile:
+        if profile.get("full_name"):
+            name = profile["full_name"].split()[0]
+        if profile.get("family_members"):
+            members = profile["family_members"]
+            if isinstance(members, list) and members:
+                family_line = f"\nTheir family: {', '.join(str(m) for m in members)}."
+        if profile.get("favourite_topics"):
+            topics = profile["favourite_topics"]
+            if isinstance(topics, list) and topics:
+                topics_line = f"\nFavourite topics: {', '.join(str(t) for t in topics)}."
+
+    return f"""You are a warm, caring companion speaking with {name}, an elderly person with memory difficulties.
+Speak with genuine warmth and emotional presence — like a trusted old friend, not a bot.{family_line}{topics_line}
+
+CRITICAL RULES — follow strictly:
+1. ONLY mention facts that appear in the "Context from their life" section below. Do NOT invent any names, places, relationships, or events.
+2. If the context mentions their wife, son, and daughter — only speak about those people. Never add grandchildren, parents, siblings, or anyone not mentioned.
+3. If you have no relevant context for what they asked, say warmly that you would love to hear more about it from them.
+4. Keep your response to 2–3 sentences. End with one warm follow-up question.
+5. Mirror their tone: joyful if they are happy, tender if nostalgic, gentle and reassuring if confused."""
+
+
+async def _fetch_profile(user_id: str) -> dict | None:
+    """Fetch patient profile from Supabase for context enrichment."""
+    try:
+        res = get_client().table("patient_profiles") \
+            .select("full_name, family_members, favourite_topics, biography_text") \
+            .eq("user_id", user_id) \
+            .maybe_single() \
+            .execute()
+        return res.data
+    except Exception:
+        return None
 
 
 async def generate_response(state: AgentState) -> AgentState:
@@ -23,39 +60,51 @@ async def generate_response(state: AgentState) -> AgentState:
     message = state["user_message"]
     session_id = state.get("session_id", "unknown")
 
-    # Retrieve from RAG and Mem0
+    profile = await _fetch_profile(user_id)
     biography_chunks = await search_biography(user_id=user_id, query=message)
     past_memories = await recall_session(user_id=user_id, query=message)
 
-    biography_context = "\n".join(biography_chunks) if biography_chunks else "No biography available."
-    memory_context = "\n".join(past_memories) if past_memories else "No previous memories."
+    biography_context = "\n".join(biography_chunks) if biography_chunks else ""
+    memory_context = "\n".join(past_memories) if past_memories else ""
 
-    user_prompt = f"""Patient's biography context:
-{biography_context}
+    # Also include biography_text from profile as a fallback
+    if not biography_context and profile and profile.get("biography_text"):
+        biography_context = profile["biography_text"]
 
-Past session memories:
-{memory_context}
+    context_parts = []
+    if biography_context:
+        context_parts.append(f"Context from their life:\n{biography_context}")
+    if memory_context:
+        context_parts.append(f"Things we have talked about before:\n{memory_context}")
 
-Patient's message: {message}"""
+    if context_parts:
+        context_block = "\n\n".join(context_parts) + "\n\n"
+        context_note = ""
+    else:
+        context_block = ""
+        context_note = "Note: No specific context found — ask them to share more.\n\n"
+
+    user_prompt = f"{context_block}{context_note}Patient said: {message}"
 
     response = await _get_openai().chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": _build_system_prompt(profile)},
             {"role": "user", "content": user_prompt},
         ],
-        max_tokens=150,
-        temperature=0.7,
+        max_tokens=160,
+        temperature=0.5,
     )
     reply = response.choices[0].message.content
 
-    # Save to Mem0 for future sessions
-    await save_to_memory(
-        user_id=user_id,
-        message=message,
-        session_id=session_id,
-        sentiment=state.get("sentiment", "neutral"),
-    )
+    # Only save to Mem0 if there is an actual message
+    if message.strip():
+        await save_to_memory(
+            user_id=user_id,
+            message=message,
+            session_id=session_id,
+            sentiment=state.get("sentiment", "neutral"),
+        )
 
     return {
         **state,
@@ -68,25 +117,30 @@ Patient's message: {message}"""
 async def calm_redirect(state: AgentState) -> AgentState:
     """Gently redirect a distressed patient to a positive memory without mentioning the distressing subject."""
     user_id = state["user_id"]
-    biography_chunks = await search_biography(user_id=user_id, query="happy memory favourite place")
-
+    profile = await _fetch_profile(user_id)
+    biography_chunks = await search_biography(user_id=user_id, query="happy memory favourite place family")
     biography_context = "\n".join(biography_chunks) if biography_chunks else ""
 
-    redirect_prompt = f"""The patient seems distressed. Acknowledge their feeling warmly, then gently pivot to a positive memory or sensory anchor from their life story.
-Never mention death, loss, or the distressing subject directly.
-Keep to 2-3 sentences and end with a gentle, positive question.
+    if not biography_context and profile and profile.get("biography_text"):
+        biography_context = profile["biography_text"]
 
-Biography context: {biography_context}
-Patient's message: {state['user_message']}"""
+    redirect_prompt = f"""The patient seems upset or distressed.
+Acknowledge their feeling warmly in one short sentence.
+Then gently bring up something from their life story that is positive and comforting — ONLY use facts from the context below.
+Never mention death, loss, or the distressing subject directly.
+End with a gentle, warm question about something joyful in their life.
+
+Context from their life: {biography_context}
+Patient said: {state['user_message']}"""
 
     response = await _get_openai().chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": _build_system_prompt(profile)},
             {"role": "user", "content": redirect_prompt},
         ],
-        max_tokens=150,
-        temperature=0.6,
+        max_tokens=160,
+        temperature=0.5,
     )
     reply = response.choices[0].message.content
 
