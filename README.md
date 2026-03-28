@@ -68,9 +68,15 @@ A web app where a caregiver uploads a patient's photos and life story once, and 
 
 ```
 FRONTEND (React + Tailwind)
-  /onboarding   → Caregiver uploads bio, photos (with per-photo descriptions), family details
+  /             → Redirects to /patient (authenticated) or /login (unauthenticated)
+  /login        → Caregiver sign in
+  /signup       → Caregiver registration
+  /patient      → Multi-patient management: list all patients, view details, select active, add/remove
+  /onboarding   → Add a new patient: upload bio, photos (with per-photo descriptions), family details
   /chat         → Voice-first AI companion (AI speaks first, auto-listens, auto-responds) + text fallback
-  /dashboard    → Caregiver daily summary, mood chart, concern alerts
+                  End Session button + auto-ends after 3 min inactivity → generates caregiver report
+  /dashboard    → Caregiver view: latest session summary, mood trend chart, concern alerts
+  /update-patient → Add more memories/photos to an existing patient
 
 BACKEND (FastAPI — Python)
   POST /ingest              → Receives onboarding data, chunks biography, captions photos, stores embeddings
@@ -155,11 +161,20 @@ cd frontend && npm run dev
 
 ## Project Progress
 
-- [x] **Phase 1** — Foundation: Supabase, FastAPI, React app, environment setup
-- [x] **Phase 2** — AI Agents: Mood, Reminiscence, Calm Redirect, Report, Supervisor routing
-- [x] **Phase 3** — Frontend: Onboarding with photo descriptions, voice-first chat, caregiver dashboard *(accessibility review pending)*
-- [ ] **Phase 4** — Testing: Evaluation scenarios, distress detection accuracy, cross-session recall
-- [ ] **Phase 5** — Submission: Deployment, demo recording, research paper, presentation
+- [x] **Phase 1** — Foundation: Supabase schema + pgvector, FastAPI /health, React app with routing, env setup
+- [x] **Phase 2** — AI Agents: Mood, Reminiscence (RAG + Mem0), Calm Redirect, Report Agent, LangGraph supervisor routing
+- [x] **Phase 3** — Frontend & backend features:
+  - Onboarding form with per-photo caregiver descriptions + GPT-4o Vision captioning
+  - Voice-first chat (AI speaks first → auto-listens → auto-responds), text fallback
+  - End Session button + 3-min inactivity auto-timeout → Report Agent → saves session + report to Supabase
+  - Post-session screen with inline summary and link to dashboard
+  - Multi-patient management (/patient): list, detail view, select active, add, remove, delete
+  - Caregiver dashboard with session summary, mood chart, concern alerts
+  - Caregiver auth: signup, login, ensureCaregiver (idempotent), Supabase RLS bypassed via service key
+  - AI grounding: patient profile injected into system prompt, RAG threshold lowered 0.7→0.4, hallucination rules
+  - *(accessibility review on /chat pending)*
+- [ ] **Phase 4** — Testing: All 5 evaluation scenarios, distress detection accuracy ≥90%, cross-session recall, latency
+- [ ] **Phase 5** — Submission: Deploy to Vercel + Railway, demo recording, research paper, presentation slides
 
 ---
 
