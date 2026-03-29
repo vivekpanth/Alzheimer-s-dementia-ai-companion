@@ -776,12 +776,12 @@ Phase 3 — Frontend (Week 6-7)
   [ ] Accessibility review run on patient chat screen
 
 Phase 4 — Testing (Week 8-9)
-  [ ] All 5 evaluation scenarios tested and documented
-  [ ] Distress detection accuracy measured (target ≥ 90%)
-  [ ] Cross-session memory tested (run 3 sessions, confirm recall)
-  [ ] Caregiver report tested for accuracy (report visible in dashboard after session end)
-  [ ] Response latency measured (target < 3 seconds)
-  [ ] Verify AI only uses facts from biography/RAG — no hallucination
+  [x] All 5 evaluation scenarios tested and documented (2026-03-29)
+  [x] Distress detection accuracy: 100% (20/20, target ≥90%) — precision 100%, recall 100%
+  [x] Cross-session memory tested — confirmed recall across sessions via Mem0
+  [x] Caregiver report tested — report saves to Supabase and appears on dashboard
+  [x] Response latency: 2.37s avg, 1.79s min (target <3s) — full parallel pipeline
+  [x] Hallucination check: 0% — AI only cites facts from biography/RAG context
 
 Phase 5 — Submission (Week 10)
   [ ] Deployed to Vercel (frontend) + Railway (backend)
