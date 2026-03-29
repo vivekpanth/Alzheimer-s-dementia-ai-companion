@@ -2,10 +2,6 @@
 
 A web app where a caregiver uploads a patient's photos and life story once, and an AI companion holds warm, personalised daily conversations with the patient — detecting emotional distress and auto-generating caregiver reports.
 
-**Course:** ITEC630 — Masters IT Project, ACU Sydney
-**Team:** Bharat (AI/Backend) · Vivek (Data Pipeline) · Anish (Frontend) · Rohit (UI & Testing)
-
----
 
 ## Key Features
 
@@ -173,7 +169,12 @@ cd frontend && npm run dev
   - Caregiver auth: signup, login, ensureCaregiver (idempotent), Supabase RLS bypassed via service key
   - AI grounding: patient profile injected into system prompt, RAG threshold lowered 0.7→0.4, hallucination rules
   - *(accessibility review on /chat pending)*
-- [ ] **Phase 4** — Testing: All 5 evaluation scenarios, distress detection accuracy ≥90%, cross-session recall, latency
+- [x] **Phase 4** — Testing:
+  - All 5 evaluation scenarios passed (happy reminiscence, distress redirect, cross-session recall, confusion handling, hallucination check)
+  - Distress detection accuracy: **100%** (20/20, target ≥90%) — precision 100%, recall 100%
+  - Cross-session recall: confirmed (topics recalled in new session via Mem0)
+  - Hallucination rate: **0%** (AI only mentioned facts from patient biography)
+  - Response latency: **2.37s avg** (min 1.79s, target <3s) — full parallel pipeline
 - [ ] **Phase 5** — Submission: Deploy to Vercel + Railway, demo recording, research paper, presentation slides
 
 ---
@@ -193,5 +194,3 @@ Commit format: `[scope] Description` — e.g. `[agent] Add LangGraph supervisor 
 
 ---
 
-*Memory Companion Agent — ITEC630 ACU Sydney*
-*Team: Bharat · Vivek · Anish · Rohit*

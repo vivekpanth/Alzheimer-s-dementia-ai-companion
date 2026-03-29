@@ -1,10 +1,13 @@
-# Reminiscence Agent — retrieves biography RAG + Mem0 memories and generates warm, grounded response
+# Reminiscence Agent — parallel retrieval for low latency, grounded warm responses
+import asyncio
 import os
 from openai import AsyncOpenAI
 from agents.supervisor import AgentState
-from tools.search_biography import search_biography
 from tools.recall_session import recall_session, save_to_memory
-from db.supabase_client import get_client
+from db.supabase_client import get_client, search_embeddings
+
+# In-memory profile cache — avoids Supabase round-trip on every message
+_profile_cache: dict = {}
 
 
 def _get_openai() -> AsyncOpenAI:
@@ -35,39 +38,59 @@ Speak with genuine warmth and emotional presence — like a trusted old friend, 
 
 CRITICAL RULES — follow strictly:
 1. ONLY mention facts that appear in the "Context from their life" section below. Do NOT invent any names, places, relationships, or events.
-2. If the context mentions their wife, son, and daughter — only speak about those people. Never add grandchildren, parents, siblings, or anyone not mentioned.
-3. If you have no relevant context for what they asked, say warmly that you would love to hear more about it from them.
-4. Keep your response to 2–3 sentences. End with one warm follow-up question.
-5. Mirror their tone: joyful if they are happy, tender if nostalgic, gentle and reassuring if confused."""
+2. If the context mentions wife, son, and daughter — only speak about those people. Never add anyone not mentioned.
+3. If you have no relevant context, say warmly that you would love to hear more about it from them.
+4. Keep your response to 2-3 sentences. End with one warm follow-up question.
+5. Mirror their tone: joyful if happy, tender if nostalgic, gentle and reassuring if confused."""
 
 
 async def _fetch_profile(user_id: str) -> dict | None:
-    """Fetch patient profile from Supabase for context enrichment."""
+    """Fetch patient profile from Supabase, cached per user_id for the session."""
+    if user_id in _profile_cache:
+        return _profile_cache[user_id]
     try:
         res = get_client().table("patient_profiles") \
             .select("full_name, family_members, favourite_topics, biography_text") \
             .eq("user_id", user_id) \
             .maybe_single() \
             .execute()
+        _profile_cache[user_id] = res.data
         return res.data
     except Exception:
         return None
 
 
+async def _embed_and_search(user_id: str, query: str) -> list:
+    """Embed query and search biography — two sequential steps bundled for gather."""
+    try:
+        openai = _get_openai()
+        emb_resp = await openai.embeddings.create(
+            model="text-embedding-3-small",
+            input=query,
+        )
+        results = await search_embeddings(user_id, emb_resp.data[0].embedding)
+        return [r["content"] for r in results]
+    except Exception:
+        return []
+
+
 async def generate_response(state: AgentState) -> AgentState:
-    """Retrieve relevant biography chunks and past memories, then generate a warm personalised response."""
+    """Parallel retrieval (profile + Mem0 + embedding+RAG), then single LLM call."""
     user_id = state["user_id"]
     message = state["user_message"]
     session_id = state.get("session_id", "unknown")
 
-    profile = await _fetch_profile(user_id)
-    biography_chunks = await search_biography(user_id=user_id, query=message)
-    past_memories = await recall_session(user_id=user_id, query=message)
+    # Run all retrieval in parallel
+    profile, past_memories, biography_chunks = await asyncio.gather(
+        _fetch_profile(user_id),
+        recall_session(user_id=user_id, query=message),
+        _embed_and_search(user_id, message),
+    )
 
     biography_context = "\n".join(biography_chunks) if biography_chunks else ""
     memory_context = "\n".join(past_memories) if past_memories else ""
 
-    # Also include biography_text from profile as a fallback
+    # Fallback to biography_text if RAG returned nothing
     if not biography_context and profile and profile.get("biography_text"):
         biography_context = profile["biography_text"]
 
@@ -77,13 +100,8 @@ async def generate_response(state: AgentState) -> AgentState:
     if memory_context:
         context_parts.append(f"Things we have talked about before:\n{memory_context}")
 
-    if context_parts:
-        context_block = "\n\n".join(context_parts) + "\n\n"
-        context_note = ""
-    else:
-        context_block = ""
-        context_note = "Note: No specific context found — ask them to share more.\n\n"
-
+    context_block = ("\n\n".join(context_parts) + "\n\n") if context_parts else ""
+    context_note = "" if context_parts else "Note: No specific context found — ask them to share more.\n\n"
     user_prompt = f"{context_block}{context_note}Patient said: {message}"
 
     response = await _get_openai().chat.completions.create(
@@ -97,7 +115,6 @@ async def generate_response(state: AgentState) -> AgentState:
     )
     reply = response.choices[0].message.content
 
-    # Only save to Mem0 if there is an actual message
     if message.strip():
         await save_to_memory(
             user_id=user_id,
@@ -115,12 +132,14 @@ async def generate_response(state: AgentState) -> AgentState:
 
 
 async def calm_redirect(state: AgentState) -> AgentState:
-    """Gently redirect a distressed patient to a positive memory without mentioning the distressing subject."""
+    """Parallel fetch profile + search happy memories, then generate redirect response."""
     user_id = state["user_id"]
-    profile = await _fetch_profile(user_id)
-    biography_chunks = await search_biography(user_id=user_id, query="happy memory favourite place family")
-    biography_context = "\n".join(biography_chunks) if biography_chunks else ""
 
+    profile, biography_chunks = await asyncio.gather(
+        _fetch_profile(user_id),
+        _embed_and_search(user_id, "happy memory favourite place family"),
+    )
+    biography_context = "\n".join(biography_chunks) if biography_chunks else ""
     if not biography_context and profile and profile.get("biography_text"):
         biography_context = profile["biography_text"]
 
